@@ -1,0 +1,1282 @@
+---
+title: "Project"
+output: flexdashboard::flex_dashboard
+---
+
+```{r include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, error= TRUE)
+```
+
+```{r message=FALSE, warning=FALSE}
+library(quantmod)
+library(xts)
+library(rvest)
+library(tidyverse)
+library(stringr)
+library(forcats)
+library(lubridate)
+library(plotly)
+library(dplyr)
+library(PerformanceAnalytics)
+library(PortfolioAnalytics)
+library(dygraphs)
+library(rmarkdown)
+library(corrplot)
+library(ggplot2)
+library(ggiraph) 
+```
+
+# Intro {.sidebar}
+
+Indice:
+
+* **Intro**
+* **Capitolo 1: Tendenze di Mercato**
+  + 1.1 *Analisi preliminare dei dati e calcolo dei rendimenti*
+  + 1.2 *Composizione Green Portfolio-Mr.Eco*
+  + 1.3 *Composizione Green Portfolio-Mr.Flight*
+ 
+* **Capitolo 2: Analisi Cluster**
+  + 2.1 *Teoria Analisi Cluster*
+  + 2.2 *Analisi Cluster - Mr. Eco*
+  + 2.3 *Analisi Cluster - Mr. Flight*
+ 
+* **Capitolo 3: Cluster Utility**
+  + 3.1 *Cluster Utility*
+  + 3.2 *Composizione Portfolio Risk objective-Mr.Eco*
+  + 3.3 *Composizione Portfolio Risk objective-Mr.Flight*
+  + 3.4 *Portfolio Risk objective vs Portfolio Cluster*
+  + *Considerazioni*
+ 
+* **APPENDICE**
+  + *Composizione Random Portfolio*
+  + *Analisi Cluster*
+  + *Random Portfolio con asset ordinati*
+  + *Riesaminazione scenari*
+
+
+INTRO {data-icon="fa-list"}
+======================================
+
+Column {.tabset}
+---------------------------------------
+
+### ABSTRACT
+
+**DATA MINING PROJECT**
+
+*Ambrosio Francesca*, *Santonicola Gerardo*, *Zappullo Sara*
+
+
+**UTILIZZO DELL'ANALISI CLUSTER NELLE SERIE STORICHE TEMPORANEE FINANZIARIE**
+
+<div style="text-align:justify;">
+
+L'idea del *project-work* è di dimostrare l'efficacia dell'analisi cluster nelle scelte di investimento di portafogli indicizzati e il contributo che tale analisi può fornire alla tradizionale teoria dei portafogli efficienti di Markovitz.  
+Lo schema che porta alla tesi è di tipo deduttivo, costruito step-by-step, a partire dall'analisi di rendimenti di più portafogli azionari, relativi a determinati settori.    
+
+Nella prima parte focalizziamo l’attenzione su due portafogli:    
+- il *primo* composto da titoli azionari di società che stanno man mano innovando i loro processi produttivi per un passaggio al “green”;   
+- il *secondo* composto da titoli azionari relativi ai settori della ristorazione e dei trasporti, categorie che hanno subito un duro colpo a causa della pandemia globale.   
+Considerati quindi i due portafogli, faremo un’analisi cluster in modo da ottimizzare l’allocazione dei pesi di capitale nei vari asset, al fine di massimizzare il rendimento o minimizzare le perdite.
+Costruiremo poi sugli stessi portafogli una composizione secondo il modello tradizionale di Markovitz, che verrà successivamente confrontata con la composizione ottenuta dall'asset allocation restituita in precendeza dal clustering.  
+Nella terza ed ultima parte, tramite l’ausilio di funzioni elaborate in R, andremo a considerare cinque macrosettori: *ristorazione*, *trasporti*, *green*, *farmaceutico* e *tecnologico*, estraendo casualmente un numero di azioni predefinito da ognuno dei settori, costruendo un portafoglio efficiente e ben diversificato secondo la logica di Markowitz e andremo a confrontarne l'ottimalità. 
+
+</div>
+
+### INTRODUZIONE
+
+**Introduzione**
+
+<div style="text-align:justify;">
+
+Il 2020 è stato un anno di cambiamenti radicali, l’inizio di una vera e propria fase di transizione che rimarrà nella storia.  
+Numerosi disastri ambientali hanno preceduto quel che è secondo gli storici il peggior anno di sempre per l’umanità. Bastano pochi esempi per intuire l’impatto che l’uomo sta avendo sul pianeta Terra, a partire da Chernobyl, passando per i numerosi disastri petroliferi, sino ad arrivare al tanto discusso e temuto cambiamento climatico. Secondo gli studiosi il coronavirus è il primo allarme, la risposta che l’uomo ha avuto dalla natura ad anni di sprechi, inquinamento e invasione rurale.  
+  
+Nella *prima parte* di questa analisi andremo proprio a capire quel che è stato l’impatto finanziario del COVID-19, analizzando due portafogli, composti rispettivamente da titoli azionari *“green”* e titoli *“turistici”*.    
+Nel primo portafoglio troveremo azioni di società che hanno colto le direttive internazionali su quel che è la tutela dell’ambiente, e che in prospettiva daranno un enorme contributo alla riduzione dell’impatto negativo che l’uomo ha sulla natura.  Nel secondo portafoglio vedremo come il COVID-19 ha impattato su uno dei settori colpiti maggiormente in quella che è considerata la più grande crisi finanziaria del secolo.    
+Secondo alcuni analisti, i mercati finanziari hanno subito un collasso più grave della crisi del ’29, della crisi del debito sovrano e dei subprime (2008-2009). Dai risultati ottenuti tramite un'analisi preliminare dei dati e un'analisi cluster con conseguente riallocazione del capitale nei vari asset, trarremo delle conclusioni che ci faranno capire quel che è stato il covid-19 per i mercati finanziari.
+
+Nella *seconda parte*, confronteremo l'efficienza dei portafogli ottenuti seguendo il modello media-varianza con l'efficienza degli stessi portafogli le cui allocazioni dei pesi sono state determinate a seguito dell'analisi cluster. 
+
+Inoltre, in una breve *appendice* andremo a computazionare un portafoglio efficiente genererico con l’ausilio di una funzione scritta in R, che estrarrà casualmente un numero predefinito di titoli azionari da un settore a scelta. Si costruirà un problema di minimo vincolato, risolvendolo con la determinazione del portafoglio che secondo la logica di Markowitz, minimizza il rischio e massimizza il rendimento. Non mancherà il confronto con il corrispettivo portafoglio efficiente ottenuto dall'ordinamento dei pesi tramite clustering.
+
+</div>
+
+1.1 Analisi preliminare dei dati e calcolo dei rendimenti {data-navmenu="CAPITOLO 1"}
+======================================
+
+### **1.1** *Analisi preliminare dei dati e calcolo dei rendimenti* 
+
+<div style="text-align:justify;">
+
+Il primo passo è creare un dataset di informazioni da cui attingere per le diverse composizioni di portafogli che si andranno a creare.  
+Utilizzando funzioni implementate nel pacchetto [quantmod](https://cran.r-project.org/web/packages/quantmod/quantmod.pdf), è possibile estrarre da serie storiche di titoli azionari determinate informazioni di interesse, fino all'ultimo giorno di trading disponibile al momento della rilevazione tramite il pacchetto [PerformanceAnalytics](https://cran.r-project.org/web/packages/PerformanceAnalytics/PerformanceAnalytics.pdf).
+  
+  
+In questo caso è stato richiesto di ricevere per ogni ticker inserito, i corrispettivi _adjusted prices_ su base giornaliera, nell'arco temporale 02-01-2020 fino all'ultimo giorno disponibile di trading.
+
+</div>
+
+*Osservazione* 
+
+<div style="text-align:justify;">
+  
+L'adjusted price (prezzo aggiustato per il rischio) modifica il prezzo di chiusura di un'azione per riflettere il valore dell'azione dopo la contabilizzazione di qualsiasi azione aziendale. Viene spesso utilizzato quando si esaminano i rendimenti storici o si fa un'analisi dettagliata della performance passata.    
+Il prezzo di chiusura è il prezzo grezzo, che è solo il valore in contanti dell'ultimo prezzo negoziato prima della chiusura del mercato, mentre l'adjusted price, tiene conto delle azioni societarie, come i frazionamenti azionari, i dividendi e le offerte di diritti.  
+I valori delle azioni sono indicati in termini di prezzo di chiusura e "prezzo di chiusura rettificato".  
+Le rettifiche permettono agli investitori di ottenere una registrazione accurata della performance del titolo, e risultano essere particolarmente utili quando si esaminano i rendimenti storici perché dà agli analisti una rappresentazione accurata del valore azionario dell'azienda.  
+
+</div>
+
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+#Costruiamo una function per calcolare i rendimenti dei titoli del nostro portafoglio.
+
+daily_returns <- function(ticker, base_year)
+  #INPUT FUNCTION:
+  #il ticker corrisponde all'identificativo dell'asset, 
+  #mentre base_year è l'anno di riferimento per il download dei dati.
+  {
+  
+  #Tramite la funzione getsymbols di Quantmod ottengo le API dei titoli azionari da YAHOO! Finance
+  stock <- getSymbols(ticker, src = "yahoo", auto.assign = FALSE) 
+  # Rimuoviamo i missing values
+  stock <- na.omit(stock)
+  # Consideriamo la colonna relativa agli adjusted prices
+  stock <- stock[, 6]
+  
+  # Facciamo in modo da considerare un orizzonte temporale partendo dall'inizio di un anno base (nel nostro caso 2020) 
+  #fino all'ultimo giorno di trading disponibile.
+  
+  horizon <- paste0(as.character(base_year), "/", as.character(Sys.Date()))
+  #paste0 mi concatena i vettori delle date dopo averli resi
+  ##di tipo carattere
+  stock <- stock[horizon]
+  
+  #Calcoliamo i rendimenti (mensili o giornalieri, basta sostituire daily o monthly in period)
+  #consideriamo quelli giornalieri tramite la funzione period return di quantmod.
+  data <- periodReturn(stock, period = "daily", type = "arithmetic")
+  
+  # Facciamo in modo di poter accedere ai dati semplicemente inserendo il Ticker dell'asset (la sigla) 
+  #e creando così in automatico un vettore colonna.
+  assign(ticker, data, envir = .GlobalEnv)
+}
+```
+
+<div style="text-align:justify;">
+
+Supponiamo ora, di avere due investitori, **Mr. Eco** e **Mr. Flight**, che all’inizio del 2020 credevano rispettivamente nella crescita delle quote ambientali e nel boom del settore trasporti/ristorazione.
+Andiamo ad osservare quali conseguenze hanno riportato i loro portafogli a seguito dello shock finanziario causato dal Covid-19.  
+
+</div>
+
+1.2 Composizione Green Portfolio - Mr. Eco {data-navmenu="CAPITOLO 1"}
+=====================================================
+
+### **1.2** *Composizione Green Portfolio* - Mr. Eco
+
+<div style="text-align:justify;">
+
+Per la composizione del portafoglio green, sono stati selezionati ben 25 titoli azionari di società relative al settore ambientale; citandone qualcuna abbiamo Tesla, dedita alla produzione di auto elettriche, Nikola, azienda innovatrice nel campo dei veicoli pesanti di trasporto all’idrogeno e SolarEdge, società per la produzione di energia solare. 
+
+</div>
+
+* GREEN PORTFOLIO <i class="fas fa-solar-panel"></i>
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+#Comporremo il nostro portafoglio green dai titoli azionari di 25 società che hanno effettuato investimenti 
+#per la traslazione al green, e l'indice di riferimento di mercato QCLN come Benchmark.
+
+daily_returns("TSLA", 2020) #Tesla
+daily_returns("ALB", 2020) #Albemarle
+daily_returns("NKLA", 2020) #NIKOLA 
+daily_returns("SEDG", 2020) #SolarEdge
+daily_returns("ENPH", 2020) #Enphase Energy
+daily_returns("NIO", 2020) #Nio inc. ADR
+daily_returns("PLUG", 2020) #Plug Power Inc.
+daily_returns("CREE", 2020) #Cree Inc.
+daily_returns("ON", 2020) #ON Semiconductor Corp
+daily_returns("FSLR", 2020) #First Solar
+daily_returns("RUN", 2020)#SunRun
+daily_returns("NEE", 2020) #NextEra Energy
+daily_returns("AY", 2020) #Atlantica
+daily_returns("BL", 2020) #Bloom energy corp.
+daily_returns("CSIQ", 2020) #Canadian Solar inc.
+daily_returns("FCEL", 2020) #FuelCell Energy
+daily_returns("NOVA", 2020) #Sunnova
+daily_returns("OEZVY", 2020) #Verbund AG
+daily_returns("CMI", 2020) # Cummins
+daily_returns("VWDRY", 2020) #Vestas Wind System
+daily_returns("JKS", 2020) #JinkoSolar Holding
+daily_returns("CIG", 2020) #Companhia Energetica de Minas Gerais
+daily_returns("DQ", 2020) #Daqo new energy corp.
+daily_returns("IBDRY", 2020) #Iberdrola
+daily_returns("GCTAY", 2020) #Siemens Gamesa Renewable Energy
+daily_returns("QCLN", 2020) #indice di riferimento nei mercati per le aziende che stanno passando al green
+```
+
+* I dati vengono uniti in un unico data-frame.
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+#adesso uniamo i dati in un unico data-frame e rinominiamo le colonne
+#utilizziamo merge.xts per unire tutte le variabili relative ai rendimenti in un unico dataframe
+green.returns <- merge.xts(TSLA, ALB, NKLA, SEDG, ENPH, NIO, PLUG, CREE, ON, FSLR, RUN, NEE, AY, BL, CSIQ, FCEL, NOVA, OEZVY, CMI, VWDRY, JKS, CIG, DQ, IBDRY, GCTAY, QCLN) 
+green.returns <-na.omit(green.returns)
+#rinominiamo le colonne dei dataframe con le sigle dei ticker
+colnames(green.returns) <- c("TSLA", "ALB", "NKLA", "SEDG", "ENPH", "NIO", "PLUG", "CREE", "ON", "FSLR", "RUN", "NEE", "AY", "BL", "CSIQ", "FCEL", "NOVA", "OEZVY", "CMI", "VWDRY", "JKS", "CIG", "DQ", "IBDRY", "GCTAY",  "QCLN") 
+```
+
+* Si ottiene così l'equivalente di una tabella sulle cui colonne sono riportati i rendimenti dei titoli azionari per ogni giorno (righe) di trading. 
+
+```{r echo= FALSE,results = 'asis'}
+knitr::kable(green.returns[1:25,3:11],caption = "adjusted prices",digits=4, "pipe")
+```
+* Rappresentiamo i rendimenti utilizzando il pacchetto [dygraph](https://cran.r-project.org/web/packages/dygraphs/dygraphs.pdf), utile per rappresentare serie storiche, con un grafico interattivo.
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+dygraph(green.returns, main = "Green portfolio") %>% ##Selezioniamo il dataset returns creato in precedenza e rinominiamo il grafico
+  dyAxis("y", label = "Return", valueRange = c(-0.5, 1.2)) %>% #Definiamo l'intervallo e rinominiamo le ordinate.
+  dyRangeSelector(dateWindow = c("2020-01-02", "2021-02-01")) %>% #definiamo l'intervallo temporale.
+  dyOptions(colors = RColorBrewer::brewer.pal(4, "Set2")) ##assegniamo un colore diverso ad ogni asset.
+
+```
+
+* Equidistribuiamo i pesi all'interno del nostro portafoglio e andiamo a confrontarne l'andamento rispetto al suo indice di mercato. 
+
+```{r echo=TRUE}
+#adesso supponiamo di investire 1/25 del nostro capitale su ogni portafoglio
+wgs <- c(rep(1/25, 25))
+
+portfolio_returns_green <- Return.portfolio(R = green.returns[,1:25], weights = wgs, wealth.index = TRUE)
+
+# Isoliamo il nostro indice di riferimento,che farà da benchmark
+benchmark_returns_green <- Return.portfolio(R = green.returns[,26], wealth.index = TRUE)
+
+# uniamo i due
+comp_green <- merge.xts(portfolio_returns_green, benchmark_returns_green)
+colnames(comp_green) <- c("Green Portfolio", "Benchmark")
+```
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+# Grafico interattivo per confrontare le performance
+dygraph(comp_green, main = "Portfolio Green Performance vs. Benchmark") %>%
+  dyAxis("y", label = "Amount ($)")
+   
+```  
+  
+  
+<div style="text-align:justify;">
+
+Dal grafico si evince che il portafoglio è in linea con l'indice relativo alle azioni presenti in esso. Tale risultato non deve stupire, poichè si sta prendendo in esame un portafoglio specifico di un settore confrontato col proprio indice settoriale di mercato, ma non è affatto superfluo poichè ci fornisce evidenze empiriche circa la corretta estrazione dei dati e la loro validità.  
+
+Implementiamo il grafico di correlazioni tra titoli utilizzando il pacchetto [ggplot2](https://cran.r-project.org/web/packages/ggplot2/ggplot2.pdf) e tutta una serie di altre sotto-librerie.     
+Il corrplot è uno strumento generale ma comunque intuitivo e utile per avere una visione d'insieme di quelle che sono le possibili influenze finanziarie tra titoli, poichè la forma del legame correlativo tra i titoli viene espresso in base al colore.  
+
+</div>
+
+```{r echo=TRUE}
+#calcoliamo la matrice di correlazione relativa al portafoglio green.
+green.correlation <- cor(green.returns)
+green.correlation[upper.tri(green.correlation)] <- NA #sostituiamo i valori del triangolo superiore della matrice 
+#con dei missing values
+green.correlation <- reshape2::melt(green.correlation, na.rm = TRUE) #rimuoviamo i missing values usati in precedenza
+colors = c("red", "white", "blue") #assegniamo i colori rispettivamente a correlazione negativa, nulla e positiva.
+#creiamo il ggplot sulla matrice di correlazione.
+plot1 <- ggplot(green.correlation) +
+  geom_tile(aes(Var1, Var2, fill = value), color = "gray")  + 
+  scale_fill_gradient2(low = colors[1], high = colors[3],
+                       mid = colors[2], midpoint = 0, limit = c(-1, 1), space = "Lab",
+                       name = "Corr") +
+  geom_text(mapping = aes(x = Var1, y = Var2, label = round(value, 1)), size = 2) +
+  ggplot2::coord_fixed() +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45,
+                                   vjust = 1, size = 8, hjust = 1),
+        axis.text.y = element_text(size = 8),
+        legend.position = 'bottom') +
+  guides(fill = FALSE) +
+  xlab("") + ylab("") 
+
+green.correlation2 <- green.correlation %>% 
+  mutate(data_id = paste0(Var1, '-', Var2),
+         tooltip = paste0(Var1, '-', Var2, ': ', round(value, 2)))
+plot2 <- ggplot(green.correlation2) +
+  geom_tile_interactive(aes(Var1, Var2, fill = value,
+                            tooltip = tooltip
+                            ), color = "gray")  +
+  scale_fill_gradient2(low = colors[1], high = colors[3],
+                       mid = colors[2], midpoint = 0, limit = c(-1, 1), space = "Lab",
+                       name = "Corr") +
+  geom_text(mapping = aes(x = Var1, y = Var2, label = round(value, 1)), size = 2) +
+  ggplot2::coord_fixed() +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45,
+                                   vjust = 1, size = 8, hjust = 1),
+        axis.text.y = element_text(size = 8),
+        legend.position = 'bottom') +
+  guides(fill = FALSE) +
+  xlab("") + ylab("")
+#grazie a questa funzione abbiamo ottenuto una mappa di colore interattiva che permette di osservare i valori 
+#e la potenza del legame di correlazione tra gli stock del portafoglio.
+girafe(ggobj = plot2)
+```
+
+<div style="text-align:justify;">
+
+Quello che si ottiene è una matrice di rendimenti simmetrica, il cui colore che indica maggior correlazione è il blu, che non a caso appartiene al ticker rappresentante l'indice di tutte le azioni green. Nikola, con il colore bianco, risulta essere la meno correlata, probabilmente per via della causa legale sostenuta con la SEC, la quale ha accusato il colosso di non essere sufficientemente "green".
+
+</div>
+
+1.3 Composizione Travel&Food Portfolio - Mr. Flight {data-navmenu="CAPITOLO 1"}
+=====================================
+
+### **1.3** *Composizione Travel&Food Portfolio* - Mr. Flight
+
+<div style="text-align:justify;">
+
+Allo stesso modo andiamo a comporre il portafoglio di Mr. Flight, importando da [Yahoo!Finance](https://it.finance.yahoo.com/) i dati relativi ad alcuni titoli azionari attivi nella ristorazione, come McDonald's e Domino's Pizza Inc., ed altri quotati nell'ambito della logistica e dei trasporti, quali compagnie aeree e navali.  
+Dunque stiamo volutamente componendo un portafoglio del tutto avverso alle tendenze di mercato dell'ultimo anno, per verificare l'adattabilità dei modelli.
+
+</div>
+
+* FOOD PORTFOLIO <i class="fas fa-utensils"></i> 
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+daily_returns("MCD", 2020)  #McDonald's
+daily_returns("DPZ", 2020) #Domino's Pizza Inc.
+daily_returns("JACK", 2020) #Jack in the box Inc.
+daily_returns("LOCO", 2020) #El pollo loco holdings Inc.
+daily_returns("YUM", 2020) #Yum! Brands Inc.
+daily_returns("CBRL", 2020) #Cracker Barrel Old Country Store Inc.
+daily_returns("CMG", 2020) #Chipotle Mexican Grill Inc.
+daily_returns("DRI", 2020) #Darden Restaurants Inc.
+daily_returns("CAKE", 2020) #Cheesecake Factory Inc.
+daily_returns("WEN", 2020) #Wendys Co.
+daily_returns("QSR", 2020) #Restaurant Brands International Inc.
+daily_returns("MARR.MI",2020)#Indice di mercato della ristorazione.
+
+rest.returns <- merge.xts(MCD, DPZ, JACK, LOCO, YUM, CBRL, CMG, DRI, CAKE, WEN, QSR, MARR.MI)
+rest.returns <-na.omit(rest.returns)
+colnames(rest.returns) <- c("MCD", "DPZ", "JACK", "LOCO", "YUM", "CBRL", "CMG", "DRI", "CAKE", "WEN", "QSR","MARR.MI")
+
+```
+
+* TRAVEL PORTFOLIO  <i class="fas fa-plane-departure"></i>  
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+daily_returns("UNP",2020) #UNION PACIFIC
+daily_returns("JBHT",2020) #j.b.HUNT TRANSPORT SERVICES
+daily_returns("CCL",2020) #Carnival Corporation & plC
+daily_returns("NCLH",2020)#Norwegian Cruise Line Holdings Ltd.
+daily_returns("RCL",2020)# Royal Caribbean Group
+daily_returns("RYAAY",2020)#Ryanair Holdings plc
+daily_returns("LHA.DE",2020) #Deutsche Lufthansa AG
+daily_returns("CAL", 2020) #Caleres Inc.
+daily_returns("DAL", 2020) #Delta Air Lines Inc.
+daily_returns("IHG", 2020) #InterContinental Hotels Group PLC
+daily_returns("MAR", 2020) #Marriott International Inc.
+daily_returns("EXPE", 2020) #Expedia
+daily_returns("DAX",2020) #Indice di riferimento di mercato dei trasporti.
+
+travel.returns <- merge.xts(UNP, JBHT, CCL, NCLH, RCL, RYAAY, LHA.DE, CAL, DAL, IHG, MAR, EXPE, DAX)
+travel.returns <-na.omit(travel.returns)
+colnames(travel.returns) <- c("UNP", "JBHT", "CCL", "NCLH", "RCL", "RYAAY", "LHA.DE", "CAL", "DAL", "IHG", "MAR","EXPE","DAX")
+```
+
+* Sia "trav.rest" (travel&restaurant) il dataframe contenente i rendimenti.
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+
+trav.rest <-merge.xts(UNP, JBHT, CCL, NCLH, RCL, RYAAY, LHA.DE, CAL, DAL, IHG, MAR, EXPE,MCD, DPZ, JACK, LOCO, YUM, CBRL, CMG, DRI, CAKE, WEN, QSR, DAX, MARR.MI)
+trav.rest<-na.omit(trav.rest)
+colnames(trav.rest)<-c("UNP", "JBHT", "CCL", "NCLH","RCL", "RYAAY", "LHA.DE", "CAL", "DAL", "IHG", "MAR", "EXPE","MCD","DPZ", "JACK", "LOCO", "YUM", "CBRL", "CMG", "DRI", "CAKE", "WEN", "QSR","DAX","MARR.MI")
+```
+
+```{r echo= FALSE,results = 'asis'}
+knitr::kable(trav.rest[1:23,2:11],caption = "Trav.Rest Adjusted Prices",digits=4, "pipe")
+```
+
+* Sia questo il grafico interrattivo.
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+#rappresentiamo i rendimenti utilizzando il pacchetto dygraph, utile per rappresentare serie storiche, con un grafico interattivo.
+dygraph(trav.rest, main = "Travel&Food Portfolio") %>% ##Seleziono il dataset returns creato in precedenza e rinomino il grafico
+  dyAxis("y", label = "Return", valueRange = c(-0.5, 1.2)) %>% #Definisco l'intervallo e rinomino le ordinate.
+  dyRangeSelector(dateWindow = c("2020-01-02", "2021-02-01")) %>% #definisco l'intervallo temporale.
+  dyOptions(colors = RColorBrewer::brewer.pal(4, "Set1")) ##assegno un colore diverso ad ogni asset.
+
+```
+
+<div style="text-align:justify;">
+
+* Verifichiamo l'accuratezza dei dati confrontandoli col proprio indice finanziario di appartenenza. 
+  
+Si suppone anche in questo caso di investire in modo equo il capitale unitario a disposizione sui vari titoli (i primi 23 dell'elenco trav.rest); tali titoli andranno a comporre il portafoglio che verrà poi confrontato con il benchmark.  
+In questo caso, avendo investito in due settori diversi, il benchmark è la composizione degli indici del settore di ristorazione (MARR.MI) e del settore logistico (DAX).  
+
+</div>
+
+```{r echo=TRUE, warning=FALSE}
+
+#adesso supponiamo di investire 1/23 del nostro capitale su ogni portafoglio
+wgs <- c(rep(1/23, 23))
+
+portfolio_returns_tr <- Return.portfolio(R = trav.rest[,1:23], weights = wgs, wealth.index = TRUE)
+
+# Isoliamo il nostro indice di riferimento,che farà da benchmark
+benchmark_returns_tr <- Return.portfolio(R = trav.rest[,24:25], wealth.index = TRUE)
+benchmark_returns_tr <-na.omit(benchmark_returns_tr)
+# uniamo i due
+comp_tr <- merge.xts(portfolio_returns_tr, benchmark_returns_tr)
+colnames(comp_tr) <- c("Portfolio", "Benchmark")
+```
+
+* Osserviamo l'andamento giornaliero dei titoli:  
+
+```{r echo=TRUE}
+# Grafico interattivo per confrontare le performance
+dygraph(comp_tr, main = "Travel&Food Portfolio Performance vs. Benchmark") %>%
+  dyAxis("y", label = "Amount ($)") %>%
+  dyOptions(colors = RColorBrewer::brewer.pal(4, "Set1"))
+```   
+   
+<div style="text-align:justify;">
+
+In questo caso il portafoglio risente della diversificazione, seppur minima, e non sempre si riscontra un andamento coerente con il benchmark, ciò tuttavia non deve stupire poichè l'indice di confronto utilizzato è una composizione di due indici di riferimento di settori diversi (logistica e ristorazione).  
+Si riesce tuttavia ad avere conferma della correttezza delle funzioni implementate in R e di quanto riflettano il vero: fino ad aprile 2020, primo periodo di lockdown inaspettatamente prolungato, il portafoglio risulta essere al di sotto del benchmark; verso ottobre 2020 (seconda chiusura) il portafoglio è al di sopra del proprio indice proprio perchè il mercato ha meglio retto la seconda ondata poichè già precedentemente preparato a tale tendenza negativa nei periodi di chiusura.    
+In una situazione diametricalmente opposta si trovava Mr. Eco, il cui portafoglio ha superato le aspettative di mercato, proprio per l'interesse riscontrato verso la green-economy e per i benifici che i vari lockdown hanno apportato all'ambiente, come la riduzione dell'effetto serra.  
+
+</div>
+
+* Il grado di correlazione dei titolI.
+ 
+
+```{r echo=TRUE}
+#calcoliamo la matrice di correlazione relativa al portafoglio travel and food. 
+travfood.correlation <- cor(trav.rest)
+travfood.correlation[upper.tri(travfood.correlation)] <- NA #sostituiamo i valori del triangolo superiore della matrice 
+#con dei missing values
+travfood.correlation <- reshape2::melt(travfood.correlation, na.rm = TRUE) #rimuoviamo i missing values usati in precedenza
+colors = c("red", "white", "blue") #assegniamo i colori rispettivamente a correlazione negativa, nulla e positiva.
+#creiamo il ggplot sulla matrice di correlazione.
+plotfood1 <- ggplot(travfood.correlation) +
+  geom_tile(aes(Var1, Var2, fill = value), color = "gray")  + 
+  scale_fill_gradient2(low = colors[1], high = colors[3],
+                       mid = colors[2], midpoint = 0, limit = c(-1, 1), space = "Lab",
+                       name = "Corr") +
+  geom_text(mapping = aes(x = Var1, y = Var2, label = round(value, 1)), size = 2) +
+  ggplot2::coord_fixed() +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45,
+                                   vjust = 1, size = 8, hjust = 1),
+        axis.text.y = element_text(size = 8),
+        legend.position = 'bottom') +
+  guides(fill = FALSE) +
+  xlab("") + ylab("") 
+
+travfood.correlation2 <- travfood.correlation %>% 
+  mutate(data_id = paste0(Var1, '-', Var2),
+         tooltip = paste0(Var1, '-', Var2, ': ', round(value, 2)))
+plotfood2 <- ggplot(travfood.correlation2) +
+  geom_tile_interactive(aes(Var1, Var2, fill = value,
+                            tooltip = tooltip
+                            ), color = "gray")  +
+  scale_fill_gradient2(low = colors[1], high = colors[3],
+                       mid = colors[2], midpoint = 0, limit = c(-1, 1), space = "Lab",
+                       name = "Corr") +
+  geom_text(mapping = aes(x = Var1, y = Var2, label = round(value, 1)), size = 2) +
+  ggplot2::coord_fixed() +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45,
+                                   vjust = 1, size = 8, hjust = 1),
+        axis.text.y = element_text(size = 8),
+        legend.position = 'bottom') +
+  guides(fill = FALSE) +
+  xlab("") + ylab("")
+#grazie a questa funzione abbiamo ottenuto una mappa di colore interattiva che permette di osservare i valori 
+#e la potenza del legame di correlazione tra gli stock del portafoglio.
+girafe(ggobj = plotfood2)
+
+```
+
+2.1 Teoria Analisi Cluster {data-navmenu="CAPITOLO 2"}
+======================================
+
+### **2.1** *Teoria Analisi Cluster*
+
+<div style="text-align:justify;">
+
+Una volta validati i dataset di cui stiamo dispondendo, il passo successivo sarà svolgere su di essi un'analisi cluster, ma prima una breve digressione sulla teoria che supporta tale analisi.  
+
+Il **clustering** o _analisi dei gruppi_ (dal termine inglese cluster analysis introdotto da Robert Tryon nel 1939) è una tecnica fondamentale di analisi multivariata dei dati per la selezione e raggruppamento di elementi omogenei in un insieme di dati.  L’ampia varietà delle tecniche di clustering si basano su misure relative alla somiglianza tra gli elementi.  Nella maggior parte di esse questa similarità, o meglio, dissimilarità, è pensata in termini di distanza in uno spazio multidimensionale.  La bontà delle analisi ottenute dagli algoritmi di clustering dipende molto dal modo in cui viene calcolata la distanza.    
+Una suddivisione delle tecniche di clustering tiene conto del tipo di algoritmo utilizzato per dividere lo spazio: 
+
+-	**Clustering gerarchico**, in cui viene individuato un insieme di raggruppamenti ordinabili secondo livelli crescenti visualizzabili mediante una raffigurazione ad albero (dendogramma). Si parla di gerarchia indicizzata quando a ciascuna ripartizione corrisponde valore numerico rappresentante il livello al quale hanno luogo i raggruppamenti (livello di aggregazione): più l’indice è elevato, più le parti raggruppate sono eterogenee.  
+
+-	**Clustering non gerarchico** (detto anche partizionale), in cui per delimitare l’appartenenza ad un gruppo viene utilizzata una distanza da un punto rappresentativo del cluster (ad esempio: centroide), avendo prefissato il numero di classi.
+
+Le tecniche di analisi gerarchica si possono a loro volta distinguere in:
+
+-	**Metodi aggregativi** o _bottom-up_ (dal basso verso l’alto), in cui inizialmente ciascuna unità costituisce un gruppo a sé stante, e poi l’algoritmo provvede a combinare i cluster più vicini fino a giungere ad una situazione in cui tutte le unità appartengono ad un solo gruppo.  
+
+-	**Metodi divisivi** o _top-down_ (dall’alto verso il basso), secondo questo metodo, all’inizio, tutti gli elementi sono in un unico cluster e poi ad ogni stadio dell’analisi, l’algoritmo inizia a dividere il cluster in tanti cluster di dimensioni inferiori: i gruppi che si formano sono ciascuno un sottoinsieme di un gruppo formato allo stadio precedente fino ad arrivare al caso estremo in cui ogni unità appartiene ad un unico gruppo.  
+Per decidere quali cluster devono essere combinati (approccio agglomerativo) o quale cluster deve essere suddiviso (approccio divisivo) è necessario definire una misura di dissimilarità tra cluster.  
+  
+In riferimento a tecniche di tipo agglomerativo, le partizioni che si ottengono ad ogni step dell’analisi possono essere rappresentate tramite un *dendogramma*. In tale diagramma ad albero, sull’asse delle ascisse vengono indicate le singole unità, mentre sull’asse delle ordinate viene indicato il livello di distanza. Quest’ultimo è descritto sul grafico attraverso una linea orizzontale di congiunzione di due o più rami, i quali corrispondono, invece, ai gruppi di unità.  
+  
+A seconda della tipologia di distanza tra gruppi utililizzata, ne consegue uno specifico metodo gerarchico agglomerativo:  
+-	Il **metodo del legame semplice**: la distanza tra due cluster è data dalla minore delle distanze tra gli elementi. 
+$$
+d(G_1,G_2)= min\ d(X_{1i}X_{2j})
+$$
+-	Il **metodo del legame completo**: in cui si assume la distanza tra i due gruppi come la maggiore delle distanze tra gli elementi.  
+$$
+d(G_1,G_2)= max\ d(X_{1i}X_{2j})
+$$
+-	Il **metodo del legame medio**: tale metodo calcola la distanza tra i due cluster come la media delle distanze tra i singoli elementi dei due gruppi.    
+$$
+d(G_1,G_2)= \frac{1}{n_1n_2}	\sum_{i=1}^{n_1} 	\sum_{j=1}^{n_2} \ d(X_{1i}X_{2j})
+$$
+- Il **metodo del centroide**: la distanza tra i due gruppi coincide con la distanza calcolata tra i centroidi, i quali sono definiti come i punti che hanno per coordinate le medie delle coordinate degli elementi dei gruppi.
+$$
+d(G_1,G_2)= d(\bar{X_1}\bar{X_2})
+$$
+Diverse sono le forme di distanze che vengono considerate nella pratica, le principali sono:  
+-	_Distanza euclidea_  
+-	_Distanza di Manhattan_  
+-	_Distanza di hamming_  
+  
+La funzione che misura tali distanze semplicemente specificandole in input è *dist*, contenuta nel pacchetto [stats](https://www.rdocumentation.org/packages/stats/versions/3.6.2).  
+  
+Alla stessa libreria appartiene anche la funzione per il clustering, *hclust*, utilizzata per l'analisi dei dataset dei due investitori, in cui in input dev'essere precisato il tipo di agglomerazione desiderata (single, complete o average).
+
+</div>
+
+*Osservazione*  
+  
+<div style="text-align:justify;">
+  
+In ambito finanziario, specie quando si lavora su serie storiche, il metodo più utilizzato è l'average linkage.  
+Da un punto di vista tecnico,  il tipo _single linkage_ è stato evitato perchè tende a non visualizzare i cluster che non sono ben separati; mentre il metodo _complete linkage_ non è stato scelto poichè considera la distanze massime come elementi della matrice di distanza e quindi non era appropriato in quest'analisi.  
+Il metodo _average linkage_ tende ad evitare gli estremi dei cluster molto larghi o molto stretti, è il compromesso tra single e complete linkage, e pertanto è stato scelto.
+
+</div>
+
+2.2 Analisi Cluster - Mr. Eco {data-navmenu="CAPITOLO 2"}
+======================================
+
+Column {.tabset}
+---------------------------------------
+
+### **2.2** *Analisi Cluster* - Mr. Eco
+
+Effettuiamo ora un'analisi cluster sul dataset "green.returns", ovvero sui rendimenti relativi alle azioni che compongono il portafoglio green di Mr. Eco.
+
+```{r}
+#trasponiamo la matrice dei rendimenti in modo da calcolare la matrice di distanze in base ai titoli e non alle date, consideriamo saltanto i 25 titoli del portafoglio, quindi le prime 25 colonne della matrice.
+
+green.returns.c <- green.returns[,1:25]
+green.returns.t <- t(green.returns.c)
+```
+
+* Adesso calcoliamo la distanza di Manhattan:  
+
+```{r echo=TRUE}
+
+manatthan <- dist(green.returns.t, method= "manhattan", diag=F, upper=F)
+
+#osservazione: allo stesso modo è possibile calcolare la distanza euclidea
+#euclid <- dist(returns.t, method="euclidean", diag= F, upper=F)
+  
+```
+
+```{r echo=TRUE}
+#cluster gerarchico SLE ed SLM
+
+#hc.returns.SLE <- hclust(euclid, method = "single")
+#print(hc.returns.SLE)
+#plot(hc.returns.SLE)
+
+#hc.returns.SLM <- hclust(manatthan, method = "single")
+#print(hc.returns.SLM)
+#plot(hc.returns.SLM)
+```
+
+<div style="text-align:justify;">
+
+  _Il metodo del centroide non cattura bene la situazione che si sta provando a descrivere, probabilmente perchè forma i gruppi in base ai valori attesi delle variabili (nel nostro caso, titoli). Le distanze tra i vari cluster sono definite in termini di distanza tra due vettori-media, ed essendo serie storiche i dati utilizzati in questo project-work, siamo interessati a tutti i rendimenti giornalieri e non ad uno solo, quello atteso._  
+  
+</div>
+
+* Per questi dataset, il tipo di clustering scelto è: Average Linkage con la distanza di Manhattan.  
+
+```{r echo=TRUE}
+hc.green <- hclust(manatthan, method = "average")
+print(hc.green)
+
+```
+
+```{r echo=TRUE}
+#con la funzione as.dendrogram facciamo in modo di modificare la classe del cluster gerarchico in "dendrogramma".
+  hcd <- as.dendrogram(hc.green)
+  labelColors = c("red", "blue", "green", "orange", "violet", "black", "gray", "brown", "pink", "yellow") 
+  #creiamo il vettore dei colori da assegnare al cluster
+cluster.green <- cutree(hc.green, 10) #scegliamo il numero dei cluster
+  colorsLabel <- function(n) {
+  if (is.leaf(n)) { #is.leaf individua tramite i nodi del dendrogramma un cluster
+    a <- attributes(n) #creiamo un vettore vuoto 
+    labCol <- labelColors[cluster.green[which(names(cluster.green) == a$label)]]
+    attr(n, "nodePar") <- c(a$nodePar, lab.col = labCol) #attribuiamo ad n un colore in base ai nodi (cluster)
+  }
+  n
+  } #con questa funzione quindi assegniamo un colore dal vettore labelColors ad ogni cluster.
+  
+  clusDendro = dendrapply(hcd, colorsLabel) 
+  #con dendrapply quindi applichiamo all' oggetto di classe "dendrogram" un colore in base ai cluster tramite la funzione colLab creata in precedenza, che assegna un colore ad ogni livello
+```
+
+### Green Portfolio
+
+```{r}
+plot(clusDendro, main = "Green portfolio", type = "triangle")
+```
+
+### *Analisi Cluster* - Mr. Eco
+
+* Redistribuiamo i pesi seguendo il cluster:
+  
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+returns.hc <- merge.xts(NKLA, PLUG, FCEL, NIO, DQ, TSLA, NOVA, CIG, CREE, ON, BL, ALB, OEZVY, CMI, AY, NEE, IBDRY, VWDRY, GCTAY, JKS, FSLR, CSIQ, RUN, SEDG, ENPH)
+returns.hc <-na.omit(returns.hc)
+colnames(returns.hc) <- c("NKLA","PLUG", "FCEL", "NIO", "DQ", "TSLA", "NOVA", "CIG", "CREE", "ON", "BL", "ALB", "OEZVY", "CMI", "AY", "NEE", "IBDRY", "VWDRY", "GCTAY", "JKS", "FSLR", "CSIQ", "RUN", "SEDG", "ENPH")
+
+#redistribuiamo i pesi seguendo il cluster
+wts_cluster <- c(0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.0083,0.0083,0.0083,0.0083,0.0083,0.0083,0.0083,0.0083,0.0083,0.0083,0.0083,0.0083,0.033,0.033,0.033,0.033,0.033,0.033)
+```
+
+<div style="text-align:justify;">
+
+* Nel seguente grafico vedremo come è variato il rendimento del green portfolio rispetto al suo indice azionario di settore.
+
+</div>
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+portfolio_returns_cluster <- Return.portfolio(R = returns.hc, weights = wts_cluster, wealth.index = TRUE)
+comp_cluster <- merge.xts(portfolio_returns_cluster, benchmark_returns_green,portfolio_returns_green)
+colnames(comp_cluster) <- c("Green Portfolio Cluster", "Benchmark","Portfolio equipesato")
+```
+
+### Green Portfolio Cluster vs. Benchmark
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+# Grafico interattivo per confrontare le performance
+dygraph(comp_cluster, main = "Green Portfolio Cluster vs. Benchmark") %>%
+  dyAxis("y", label = "Amount ($)")
+```
+> Nel grafico è stato inserito anche il rendimento del portafoglio equipesato per evidenziare l'efficacia di una distribuzione ottimale dei pesi a seguito del clustering. Da notare come entrambi i portafogli sono al di sopra del benchmark, proprio per l'inatteso successo che questo settore ha avuto nell'ultimo anno. 
+
+2.3 Analisi Cluster - Mr. Flight {data-navmenu="CAPITOLO 2"}
+======================================
+
+Column {.tabset}
+---------------------------------------
+
+### **2.3** *Analisi Cluster* - Mr. Flight
+
+Eseguiamo la stessa analisi cluster per il Travel&Food Portfolio prendendo in considerazione le colonne della matrice dei rendimenti, ovvero i ticker dei titoli.  
+
+```{r warning=FALSE, include=FALSE}
+trav.rest.c <- trav.rest[,1:23]
+trav.rest.t <- t(trav.rest.c)
+```
+
+```{r echo=FALSE, warning=FALSE}
+#adesso calcoliamo distanza di Manhattan
+
+manatthan1 <- dist(trav.rest.t , method= "manhattan", diag=F, upper=F)
+
+hc.travrest <- hclust(manatthan1, method = "average")
+print(hc.travrest)
+```
+
+```{r echo=TRUE, warning=FALSE}
+#con la funzione as.dendrogram facciamo in modo da modificare la classe del cluster gerarchico in "dendrogramma".
+  hcd <- as.dendrogram(hc.travrest)
+#creiamo il vettore dei colori da assegnare al cluster
+  labelColors = c("red", "blue", "green", "orange", "violet", "black", "gray", "brown", "pink", "yellow") 
+cluster.travrest <- cutree(hc.travrest, 10) #scegliamo il numero dei cluster
+  colorsLabel <- function(n) {
+  if (is.leaf(n)) { #is.leaf individua tramite i nodi del dendrogramma un cluster
+    a <- attributes(n) #creiamo un vettore vuoto 
+    labCol <- labelColors[cluster.travrest[which(names(cluster.travrest) == a$label)]]
+    attr(n, "nodePar") <- c(a$nodePar, lab.col = labCol) #attribuiamo ad n un colore in base ai nodi (cluster)
+  }
+  n
+  } #con questa funzione quindi assegniamo un colore dal vettore labelColors ad ogni cluster.
+  
+  clusDendro = dendrapply(hcd, colorsLabel) 
+  #con dendrapply quindi applichiamo all'oggetto di classe "dendrogram" un colore in base ai cluster 
+  #tramite la funzione colLab creata in precedenza, che assegna un colore ad ogni livello
+```
+
+### Travel&Food Portfolio
+
+Di seguito il dendrogramma ottenuto plottando il clustering basato sul metodo agglomerativo del legame medio:  
+
+```{r echo=FALSE, warning=FALSE}
+plot(clusDendro, main = "Travel&Food portfolio", type = "triangle")
+
+```
+  
+### *Analisi Cluster* - Mr. Flight
+
+* Riportiamo i titoli nella matrice dei rendimenti seguendo l'ordine cluster: 
+  
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+returns.hc1<- merge.xts(CAL, CCL, NCLH, RCL, CAKE, LHA.DE, CBRL, DRI, DAL, RYAAY, EXPE, IHG, MAR, LOCO, JACK, WEN, DPZ, CMG, QSR, JBHT, UNP, MCD, YUM) 
+returns.hc1 <-na.omit(returns.hc1)
+colnames(returns.hc1) <- c("CAL","CCL", "NCLH", "RCL", "CAKE","LHA.DE","LOCO", "JACK", "WEN","DPZ", "CMG", "QSR", "JBHT", "UNP", "MCD", "YUM","CBRL", "DRI","DAL","RYAAY", "EXPE", "IHG", "MAR")
+#redistribuiamo i pesi seguendo il cluster
+
+wts_cluster1<- c(0.1,0.033,0.033,0.033,0.1,0.1,0.1,0.05,0.05,0.01428,0.01428,0.01428,0.01428,0.01428,0.01428,0.01428,0.05,0.05,0.1,0.025,0.025,0.025,0.025)
+```
+
+* Osserviamo la variazione di rendimento di portafoglio ottenuta: 
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+portfolio_returns_cluster1 <- Return.portfolio(R = returns.hc1, weights = wts_cluster1, wealth.index = TRUE)
+comp_cluster <- merge.xts(portfolio_returns_cluster1, benchmark_returns_tr, portfolio_returns_tr)
+colnames(comp_cluster) <- c("Travel&Food Portfolio cluster", "Benchmark", "Portafoglio equipesato")
+```
+
+### Travel&Food Portfolio Performance vs. Benchmark
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+# Grafico interattivo per confrontare le performance
+dygraph(comp_cluster, main = "Travel&Food Portfolio Performance vs. Benchmark") %>%
+  dyAxis("y", label = "Amount ($)") %>%
+  dyOptions(colors = RColorBrewer::brewer.pal(4, "Set1"))
+
+```
+
+> Come detto in precedenza, equidistribuire il capitale è un qualcosa di finanziariamente scorretto proprio perchè il mercato è fatto di titoli correlati ad altri titoli a loro volta correlati ad altri titoli (anche se appartenenti a settori diversi), dunque rappresenta una situazione "irreale", ecco perchè non deve stupire che il rendimento del portafoglio equipesato sia maggiore di quello cluster.
+Grazie all'analisi cluster infatti, abbiamo ottenuto anzitutto un andamento reale di un portafoglio _veritiero_, il quale resta pressochè sempre al di sotto del proprio benchmark, a causa dello stato di fermo di tali settori in pandemia. Il benchmark inoltre, che rispetta sia le tendenze, sia le volontà di chi si affaccia sul mercato, non ha presentato eccessivi ribassi se non nelle fasi di chiusura.  Nei periodi di normativa flessibile, il portafoglio cluster è stato al passo con il benchmark, pertanto l'analisi cluster si può ritenere, comunque, un successo.
+
+3.1 Cluster utility {data-navmenu="CAPITOLO 3"}
+======================================
+
+### **3.1** *Cluster utility*
+
+<div style="text-align:justify;">
+
+Il clustering di serie temporali che descrive l'andamento dei prezzi dei titoli è un utile strumento a supporto della gestione degli investimenti. L'individuazione delle correlazioni tra titoli è infatti un principio base per la diversificazione del portafoglio.  
+L'obiettivo della diversificazione è diminuire il rischio degli investimenti tramite la presenza in portafoglio di più attività finanziarie il cui andamento non è correlato.  
+
+Qui di seguito comporremo un portafoglio specifico per Mr. Eco e poi per Mr. Flight seguendo il metodo clustering tradizionale.  
+
+</div>
+
+*Metodo cluster tradizionale*  
+
+<div style="text-align:justify;">
+
+Dal pacchetto [PerformanceAnalytics](https://cran.r-project.org/web/packages/PerformanceAnalytics/PerformanceAnalytics.pdf) tramite la funzione _portfolio.spec_ è possibile costruire un portafoglio basato sul modello di Markovitz.  
+  
+*Con il modello di Markovitz si costruisce un mondo "media-varianza" dove i rendimenti dei vari asset sono quindi distribuiti normalmente.*
+
+Creiamo il nostro portafoglio fornendo in input specifiche precise. 
+
+**L'idea è quella di scegliere il portafoglio che a parità di rendimento abbia il minor rischio, ossia la miglior varianza.**
+
+</div>
+
+3.2 Composizione portfolio risk objective - Mr. Eco {data-navmenu="CAPITOLO 3"}
+======================================
+
+Column {.tabset}
+---------------------------------------
+
+### **3.2**  *Composizione portfolio risk objective* - Mr. Eco
+
+Componiamo un portafoglio green efficiente:
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+#diamo in input alla funzione portfolio.spec gli asset (ovvero le colonne del data frame) del portafoglio green
+pspec <- portfolio.spec(assets=colnames(green.returns[,1:25]), weight_seq=generatesequence())
+
+#specifichiamo che il tipo di portafogli abbia il vincolo che la "somma dei pesi" sia pari a 1
+  pspec <- add.constraint(portfolio = pspec, type = "weight_sum", min_sum = 0.99, max_sum = 1.01, enabled = TRUE)
+  
+  #specifichiamo i margini di distribuzione del capitale
+  pspec <- add.constraint(portfolio = pspec, type = "box", min= 0.003, max = 0.500)
+  
+  #obiettivo dell'investitore razionale è MASSIMIZZARE IL RENDIMENTO E MINIMIZZARE IL RISCHIO
+  pspec <- add.objective(portfolio = pspec, type = "return", name = "mean")
+  pspec <- add.objective(portfolio=pspec,type="risk",name="StdDev")
+  
+  #ottimizziamo i pesi sulla base delle specifiche fornite per il nostro portafoglio
+  opt<-optimize.portfolio(R=green.returns[,1:25],portfolio=pspec,optimize_method="random",trace=T)
+```
+
+```{r echo=TRUE}
+#estraiamo i pesi dalla funzione "opt"
+  pesiOPT<-extractWeights(opt)
+  pesiOPT
+```
+
+* Confrontiamo il rendimento del portafoglio così ottenuto con il benchmark:  
+
+```{r echo=TRUE, warning=FALSE}
+#in input ai pesi andranno sostituiti i pesi ottenuti dalla funzione "opt"
+portfolio_returns_green <- Return.portfolio(R=green.returns[,1:25], weights = pesiOPT, wealth.index = TRUE)
+comp_green <- merge.xts(portfolio_returns_green, benchmark_returns_green)
+colnames(comp_green) <- c("Portfolio", "Benchmark")
+```
+
+<div style="text-align:justify;">
+
+Il portafoglio così costruito, poichè è stata di base violata l'ipotesi di incorrelazione dei titoli (elemento necessario ai fini della diversificazione del portafoglio), assume un rendimento inizialmente pari e poi nettamente al di sotto del proprio indice. Lo stesso portafoglio inoltre, anche quando è in positivo, non registra particolari "impennate" poichè quello di Markovitz è un modello _prudente_ che tutela l'investitore, mantenendo sempre contenuto il rischio collegato alle azioni.
+
+</div>
+
+Column {.tabset}
+---------------------------------------
+
+### Green Portfolio ottimizzato
+
+```{r echo=FALSE}
+#plottiamo la distribuzione
+  plot(opt, return.col="mean", risk.col = "StdDev", chart.assets = T,
+       main="Green Portfolio ottimizzato e suoi pesi")
+```
+
+### Green Portfolio Markovitz-Performance vs. Benchmark
+
+```{r echo=FALSE, warning=FALSE}
+dygraph(comp_green, main = "Green Portfolio Markovitz-Performance vs. Benchmark") %>%
+  dyAxis("y", label = "Amount ($)")
+
+```
+
+3.3 Composizione portfolio risk objective - Mr. Flight {data-navmenu="CAPITOLO 3"}
+======================================
+
+Column {.tabset}
+---------------------------------------
+
+### **3.3** *Composizione portfolio risk objective* - Mr. Flight 
+
+Così come per Mr. Eco, creiamo un Food&Travel Portfolio che non tenga conto della precendente analisi cluster e che risulti ottimizzato secondo il modello media-varianza.  
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+#diamo in input alla funzione portfolio.spec gli asset (ovvero le colonne del data frame) del portafoglio trav.rest
+  pspec1 <- portfolio.spec(assets=colnames(trav.rest[,1:23]), weight_seq=generatesequence())
+  #specifichiamo che il portafoglio è di tipo "somma dei pesi" col vincolo che la loro  somma sia pari a 1
+  pspec1 <- add.constraint(portfolio = pspec1, type = "weight_sum", min_sum = 0.99, max_sum = 1.01, enabled = TRUE)
+  #specifichiamo i margini di distribuzione del capitale
+  pspec1 <- add.constraint(portfolio = pspec1, type = "box", min= 0.003, max = 0.500)
+  #obiettivO dell'investitore razionale ? MASSIMIZZARE IL RENDIMENTO E MINIMIZZARE IL RISCHIO
+  pspec1 <- add.objective(portfolio = pspec1, type = "return", name = "mean")
+  pspec1 <- add.objective(portfolio=pspec1,type="risk",name="StdDev")
+  #ottimizziamo i pesi sulla base delle specifiche fornite per il nostro portafoglio
+  opt1<-optimize.portfolio(R=trav.rest[,1:23],portfolio=pspec1,optimize_method="random",trace=T)
+  #estraiamo i pesi dalla funzione per utilizzarli nell'analisi cluster
+pesiOPT1<-extractWeights(opt1)
+  pesiOPT1
+```
+
+<div style="text-align:justify;">
+
+La prudenza insita nel modello di Markovitz gioca a favore di Mr.Flight e nel seguente grafico interattivo risulta ancor più significativa.  Nonostante la tendenza del mercato (descritta dall'indice di riferimento) a sottostimare i settori che compongono il Travel&Food Portfolio, il modello riesce comunque a reggere meglio lo shock temporaneo di domanda e offerta negli ambiti finanziari di ristorazione e di logistica.  Interessante la risposta del portafoglio al secondo lockdown (Ottobre 2020) che resta comunque in attivo nonostante le perdite, a differenza del picco in negativo subito nell'aprile 2020 (shock a cui il mercato era impreparato).  
+
+</div>
+
+Column {.tabset}
+---------------------------------------
+
+### Travel&Food Portfolio ottimizzato
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+plot(opt1, return.col="mean", risk.col = "StdDev", chart.assets = T,
+       main="Travel&Food Portfolio ottimizzato e suoi pesi")
+```
+
+### Travel&Food Portfolio Markovitz Performance vs. Benchmark
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+portfolio_returns_tr<- Return.portfolio(R=trav.rest[,1:23], weights = pesiOPT1[1:23], wealth.index = TRUE)
+comp_tr <- merge.xts(portfolio_returns_tr, benchmark_returns_tr)
+colnames(comp_tr) <- c("Travel&Food Portfolio", "Benchmark")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+dygraph(comp_tr, main = "Travel&Food Portfolio Markovitz Performance vs. Benchmark") %>%
+  dyAxis("y", label = "Amount ($)") %>%
+  dyOptions(colors = RColorBrewer::brewer.pal(4, "Set1"))
+
+```
+
+3.4 Portfolio Risk objective vs Portfolio Cluster {data-navmenu="CAPITOLO 3"}
+====================================== 
+
+Column {.tabset}
+---------------------------------------
+
+### **3.4** *Portfolio Risk objective vs Portfolio Cluster*
+
+<div style="text-align:justify;">
+
+Componiamo ora il portafoglio risk objective basandoci sul cluster effettuato sulle serie temporali dei titoli. 
+Il metodo è equivalente al precedente, avendo però come assets l'insieme ordinato dei titoli ottenuto dall'analisi cluster.
+  
+</div>
+
+* *Clustering su serie storiche finanziarie* - GREEN PORTFOLIO
+  
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+#CON L INSIEME CLUSTER HC
+ #in input alla funzione portoflio.returns viene assegnato l'insieme returns.hc, 
+#ovvero l'insieme ordinato secondo l'analisi cluster del portafoglio green.
+ pspec <- portfolio.spec(assets=colnames(returns.hc), weight_seq=generatesequence())
+  #specifichiamo che il portafoglio è di tipo "somma dei pesi" col vincolo che la loro somma sia pari a 1
+  pspec <- add.constraint(portfolio = pspec, type = "weight_sum", min_sum = 0.99, max_sum = 1.01, enabled = TRUE)
+  #specifichiamo i margini di distribuzione del capitale
+  pspec <- add.constraint(portfolio = pspec, type = "box", min= 0.003, max = 0.500)
+  #obiettivO dell'investitore razionale ? MASSIMIZZARE IL RENDIMENTO E MINIMIZZARE IL RISCHIO
+  pspec <- add.objective(portfolio = pspec, type = "return", name = "mean")
+  pspec <- add.objective(portfolio=pspec,type="risk",name="StdDev")
+  #ottimizziamo i pesi sulla base delle specifiche fornite per il nostro portafoglio
+  opt_CLU<-optimize.portfolio(R=returns.hc,portfolio=pspec,optimize_method="random",trace=T)
+  pesiOPT_CLU<-extractWeights(opt_CLU)
+  #estraiamo i pesi dalla funzione per utilizzarli nell'analisi cluster
+portfolio_returns_clu <- Return.portfolio(R=returns.hc, weights = pesiOPT_CLU, wealth.index = TRUE)
+```
+
+* *Clustering su serie storiche finanziarie* - TRAVEL&FOOD PORTFOLIO 
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+#CON L INSIEME CLUSTER HC
+ #in input alla funzione portoflio.returns viene assegnato l'insieme returns.hc, 
+#ovvero l'insieme ordinato secondo l'analisi cluster del portafoglio trav.rest.
+pspec1 <- portfolio.spec(assets=colnames(returns.hc1), weight_seq=generatesequence())
+  #specifichiamo che il portafoglio è di tipo "somma dei pesi" col vincolo che la loro somma sia pari a 1
+  pspec1 <- add.constraint(portfolio = pspec1, type = "weight_sum", min_sum = 0.99, max_sum = 1.01, enabled = TRUE)
+  #specifichiamo i margini di distribuzione del capitale
+  pspec1 <- add.constraint(portfolio = pspec1, type = "box", min= 0.003, max = 0.500)
+  #obiettivO dell'investitore razionale ? MASSIMIZZARE IL RENDIMENTO E MINIMIZZARE IL RISCHIO
+  pspec1 <- add.objective(portfolio = pspec1, type = "return", name = "mean")
+  pspec1 <- add.objective(portfolio=pspec1,type="risk",name="StdDev")
+  #ottimizziamo i pesi sulla base delle specifiche fornite per il nostro portafoglio
+  opt1_CLU<-optimize.portfolio(R=returns.hc1,portfolio=pspec1,optimize_method="random",trace=T)
+pesiOPT1_CLU<-extractWeights(opt1_CLU)
+  #estraiamo i pesi dalla funzione per utilizzarli nell'analisi cluster
+portfolio_returns_clu1<- Return.portfolio(R=returns.hc1, weights = pesiOPT1_CLU, wealth.index = TRUE)
+```
+Confrontiamo i rendimenti ottenuti dai due diversi tipi di cluster.
+
+### Clustering Performance Portfolio vs Markovitz Model once
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+comp_fin <-merge.xts(portfolio_returns_green,portfolio_returns_clu,benchmark_returns_green,portfolio_returns_cluster)
+colnames(comp_fin)<- c("Markovitz Model Perf", "Analisi Cluster Perf", "benchmark_returns_green","Only Cluster Portfolio")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+dygraph(comp_fin, main = "Clustering Performance Portfolio vs Markovitz Model once") %>%
+  dyAxis("y", label = "Amount ($)")
+```
+
+> **Green Portfolio**   
+Dal grafico si evince che seguendo il modello di Markovitz applicato all'insieme ordinato di dati secondo il cluster, il rendimento del portafoglio è lievemente superiore, ma nettamente inferiore al rendimento assicurato dal portafoglio costruito esclusivamente basandosi sull'analisi cluster (traccia viola), che vede più del quadruplo del rendimento!
+
+### Clustering Performance Portfolio vs Markovitz Model once
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+portfolio_returns_clu1<- Return.portfolio(R=returns.hc1, weights = pesiOPT1_CLU, wealth.index = TRUE)
+comp_fin1 <-merge.xts(portfolio_returns_tr,portfolio_returns_clu1, benchmark_returns_tr, portfolio_returns_cluster1)
+colnames(comp_fin1)<- c("Markovitz Model Perf", "Analisi Cluster Perf", "benchmark_returns_tr", "Only Cluster Portfolio")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+dygraph(comp_fin1, main = "Clustering Performance Portfolio vs Markovitz Model once") %>%
+  dyAxis("y", label = "Amount ($)") %>%
+  dyOptions(colors = RColorBrewer::brewer.pal(4, "Set1"))
+
+```
+
+> **Travel&Food Portfolio**  
+Con il seguente andamento di rendimenti, si evince che accompagnando ad un portafoglio  markovitziano diversificato (ma nemmeno troppo), un'analisi cluster, si possono ottenere rendimenti al meglio delle possibilità del solo modello media-varianza solo quando il mercato ha già registrato una certa tendenza: da Ottobre 2020 in poi, il portafoglio di Marvovitz costruito sull'analisi cluster è più fruttoso poichè reagisce più rapidamente agli shock finanziari.    
+Si noti se Mr. Flight avesse deciso di investire a seguito della sola analisi cluster (traccia viola), avrebbe rinunciato a veder quasi raddoppiato il suo patrimonio. 
+
+Considerazioni {data-navmenu="CAPITOLO 3"}
+====================================== 
+
+### <i class="far fa-comments"></i> *Considerazioni*  
+ 
+<div style="text-align:justify;"> 
+
+La principale difficoltà è legata alla definizione della misura di similarità. L'analisi cluster può essere uno strumento utile alla gestione del portafoglio, a differenza del clustering di generiche serie temporali, se vengono fornite delle misure quantitative della somiglianza, tra singoli titoli o tra titoli appartenenti ad un cluster, in modo da dare un'indicazione misurabile all'analista. 
+  
+Il portafoglio di Mr. Eco risente maggiormente dell'efficacia dell'analisi cluster proprio perchè il fatto stesso di essere un portafoglio indicizzato è una misura quantitativa della somiglianza molto forte. Nel momento stesso in cui viene condizionato ad un altro modello che promuove la dissimilarità, perde di efficacia.    
+  
+Non appena si inizia a diversificare il portafoglio, come nel caso di Mr. Flight (composto da azioni dei settori di ristorazione e trasporti), l'effetto dell'analisi cluster inizia a scemare a favore dell'analisi Markobvitziana basata sull'incorrelazione dei titoli. 
+Tuttavia l'analisi cluster riesce comunque a dare il suo contributo a lungo termine anche nel modello media-varianza.  
+
+</div>
+
+Composizione random portfolio {data-navmenu="APPENDICE"}
+====================================== 
+
+Column {.tabset}
+---------------------------------------
+
+### *Composizione random portfolio*
+
+<div style="text-align:justify;">
+
+In questo project-work sono stati presi in considerazione portafogli settoriali al fine di riscontrare evidenze a favore dell'utilizzo dell'analisi cluster in aggiunta al noto schema Lagrangiano di minimi vincolati nel processo di composizione ottimale di portafogli di investitori razionali.  
+Un portafoglio composto da titoli "simili" ha permesso di riscontrare l'efficacia dell'analisi cluster in maniera _forte_. 
+  
+Un portafoglio infatti, è ben diversificato non solo se alla base c'è una distribuzione "obiettiva" di capitale, ma anche se è abbastanza vario da contenere titoli che rispondano in maniera differente alla stessa causa, per _sopportare_ meglio gli shock finanziari.  
+  
+    
+Dunque, generalemente, un portafoglio è formato da titoli appartenenti a categorie diverse. In seguito ne verrà generato uno composto da titoli scelti dai dataset in modo randomizzato, seguendo quella che può essere la tendenza del mercato e le volontà dell'investitore.
+  
+</div>  
+  
+Incrementiamo la lista di ticker a nostra disposizione con titoli appartenenti ad altre categorie. 
+  
+* TECH PORTFOLIO <i class="fas fa-chalkboard"></i>
+
+```{r echo=TRUE}
+daily_returns("AAPL", 2020) #Apple
+daily_returns("SNE", 2020) #Sony entertainment network
+daily_returns("MSFT", 2020) #Microsoft
+daily_returns("GOOG", 2020) #Google
+daily_returns("INTC", 2020) #Intel Corporation
+daily_returns("IBM", 2020) #IBM
+daily_returns("FB", 2020) #Facebook
+daily_returns("ORCL", 2020) #Oracle
+daily_returns("TCEHY", 2020) #Tencent Holdings Ltd
+daily_returns("SAP", 2020) #SAP
+daily_returns("AMZN", 2020) #Amazon
+daily_returns("NVDA", 2020) #Nvidia
+daily_returns("LRCX", 2020) #Lam Research Corp
+daily_returns("PANW", 2020) #Palo Alto Network Inc.
+daily_returns("CHKP", 2020) #Check Point software Technologies
+daily_returns("MELI", 2020) #Mercadolibre Inc.
+daily_returns("DOCU", 2020) #DocuSign Inc.
+daily_returns("UA", 2020) #Under Armour Inc.
+
+tech.returns <- merge.xts(AAPL, SNE, MSFT, GOOG, INTC, IBM, FB, ORCL, TCEHY, SAP, AMZN, NVDA, LRCX, PANW, CHKP, MELI, DOCU,UA)
+colnames(tech.returns) <- c("AAPL", "SNE", "MSFT", "GOOG", "INTC", "IBM", "FB", "ORCL", "TCEHY", "SAP", "AMZN", "NVDA", "LRCX", "PANW", "CHKP", "MELI", "DOCU", "UA")
+```
+
+* PHARMA PORTFOLIO <i class="fas fa-prescription-bottle-alt"></i>
+
+```{r echo=TRUE}
+daily_returns("BIIB", 2020) #Biogen Inc.
+daily_returns("AMGN", 2020) #Amagen Inc.
+daily_returns("GILD", 2020) #Gilead Sciences Inc.
+daily_returns("REGN", 2020) #Regeneron Pharmaceuticals Inc.
+daily_returns("CRSP", 2020) #CRISPR Therapeutics AG
+daily_returns("SNY", 2020) #Sanofy SA
+daily_returns("LLY", 2020) #Eli Lilly and Co.
+daily_returns("NVS", 2020) #Novartis AG
+daily_returns("RHHBY", 2020) #Roche Holding AG
+daily_returns("PFE", 2020) #Pfizer Inc.
+daily_returns("MRNA", 2020) #Moderna Inc.
+daily_returns("JNJ", 2020) #Johnson & Johnson
+daily_returns("EXEL", 2020) #Exelixis Inc.
+daily_returns("VRTX", 2020) #Vertex Pharmaceuticals Inc.
+daily_returns("ABBV", 2020) #Abbvie Inc.
+
+pharma.returns <- merge.xts(BIIB, AMGN, GILD, REGN, CRSP, SNY, LLY, NVS, RHHBY, PFE, MRNA, JNJ, EXEL, VRTX, ABBV)
+colnames(pharma.returns) <- c("BIIB", "AMGN", "GILD", "REGN", "CRSP", "SNY", "LLY", "NVS", "RHHBY", "PFE", "MRNA", "JNJ", "EXEL", "VRTX", "ABBV")
+```
+
+<div style="text-align:justify;">
+
+Una volta uniti i dataframe di ogni gruppo di ticker in unico dataset "all.returns", è sufficiente implementare una funzione che riceve in input "all.returns" e il numero di azioni che si vuole inserire per ogni categoria proposta:  
+* *g* richiede l'inserimento del numero di azioni *green* desiderato;   
+* *r* richiede l'inserimento del numero di azioni *rest* desiderato;   
+* *t* richiede l'inserimento del numero di azioni *tech* desiderato;   
+* *tr* richiede l'inserimento del numero di azioni *travel* desiderato;  
+* *ph* richiede l'inserimento del numero di azioni *pharma* desiderato;      
+
+</div>
+
+```{r echo=TRUE}
+#effettuiamo un concatenamento tra colonne
+all.returns=cbind(green.returns, rest.returns, tech.returns, travel.returns, pharma.returns)
+all.returns<-as.matrix(all.returns)
+port_random<-function(all.returns,g,r,t,tr,ph){ 
+  #selezioniamo 5 api randomizzate da ogni sotto insieme returns
+  group1<-green.returns[,sample(1:ncol(green.returns),g,replace=FALSE)]
+  group2<-rest.returns[,sample(1:ncol(rest.returns),r,replace=FALSE)]
+  group3<-tech.returns[,sample(1:ncol(tech.returns),t,replace=FALSE)]
+  group4<-travel.returns[,sample(1:ncol(travel.returns),tr,replace=FALSE)]
+  group5<-pharma.returns[,sample(1:ncol(pharma.returns),ph,replace=FALSE)]
+  final.returns<-cbind(group1,group2,group3,group4,group5)
+  final.returns[is.na(final.returns)]<-0
+  return(final.returns)
+  
+}
+```
+  
+<div style="text-align:justify;">
+  
+Un investitore che guarda al futuro, ad esempio, potrebbe voler investire principalmente in azioni green, tech e pharma (volendo seguire la tendenza dei mercati in vista del commercio di vaccini antiCovid) e meno sui settori di ristorazione poichè non si prospetta un rapido ritorno alla normalità:
+
+</div>
+
+```{r echo=TRUE}
+random=port_random(all.returns,8,3,7,3,6)
+```
+
+```{r include=FALSE}
+random=merge.xts(QCLN,SEDG,ENPH,TSLA,DQ,CSIQ,CMI,IBDRY,CBRL,LOCO,CAKE,PANW,MSFT,UA,FB, SNE,MELI,TCEHY,NCLH,CCL,LHA.DE,PFE,ABBV,EXEL, REGN,JNJ,BIIB)
+random<-na.omit(random)
+colnames(random)<-c("QCLN","SEDG","ENPH","TSLA","DQ","CSIQ","CMI","IBDRY","CBRL","LOCO","CAKE","PANW","MSFT","UA","FB", "SNE","MELI","TCEHY","NCLH","CCL","LHA.DE","PFE","ABBV","EXEL", "REGN","JNJ","BIIB")
+
+```
+
+```{r echo= FALSE,results = 'asis'}
+ knitr::  kable(random[2:10,], caption = "Random Portfolio Composition",digits=4, "pipe")
+```
+
+<div style="text-align:justify;">
+
+Affidandosi al pacchetto [PerformanceAnalytics](https://cran.r-project.org/web/packages/PerformanceAnalytics/PerformanceAnalytics.pdf) precendentemente utilizzato, inoltre l'investitore, potrebbe comporre il portafoglio in base al proprio grado di avversione al rischio ed avere così un'idea di come suddividere il proprio capitale.  
+  
+Qui di seguito, una possibile ripartizione dei pesi su capitale unitario da parte di un investitore razionale, e dunque che persegue l'obiettivo, a parità di rendimento, di minimizzare il rischio:  
+
+</div>
+
+```{r echo=TRUE, warning=FALSE}
+pspec_rand <- portfolio.spec(assets=colnames(random[,1:27]), weight_seq=generatesequence())
+#specifichiamo che il tipo di portafogli ? di tipo "somma dei pesi" col vincolo che la loro somma sia pari a 1
+pspec_rand <- add.constraint(portfolio = pspec_rand, type = "weight_sum", min_sum = 0.99, max_sum = 1.01, enabled = TRUE)
+#specifichiamo i margini di distribuzione del capitale
+pspec_rand <- add.constraint(portfolio = pspec_rand, type = "box", min= 0.003, max = 0.500)
+#obiettivO dell'investitore razionale ? MASSIMIZZARE IL RENDIMENTO E MINIMIZZARE IL RISCHIO
+pspec_rand <- add.objective(portfolio = pspec_rand, type = "return", name = "mean")
+pspec_rand <- add.objective(portfolio=pspec_rand,type="risk",name="StdDev")
+#ottimizziamo i pesi sulla base delle specifiche fornite per il nostro portafoglio
+opt_rand<-optimize.portfolio(R=random[,1:27],portfolio=pspec_rand,optimize_method="random",trace=T)
+pesiOPT_rand<-extractWeights(opt_rand)
+pesiOPT_rand
+```
+  
+### Random Portfolio ottimizzato
+
+```{r echo=FALSE, warning=FALSE}
+plot(opt_rand, return.col="mean", risk.col = "StdDev", chart.assets = T,
+       main="Random Portfolio ottimizzato e suoi pesi")
+
+```
+
+Analisi Cluster {data-navmenu="APPENDICE"}
+====================================== 
+
+Column {.tabset}
+---------------------------------------
+
+### *Analisi Cluster*
+
+Effettuiamo un'analisi cluster:   
+  
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+random.c <- random[,1:27]
+random.t <- t(random.c)
+manatthan2 <- dist(random.t, method= "manhattan", diag=F, upper=F)
+random.cluster<- hclust(manatthan2, method = "average")
+print(random.cluster)
+```
+
+Column {.tabset}
+---------------------------------------
+
+### Random Portfolio
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+#con la funzione as.dendrogram facciamo in modo da modificare la classe del cluster gerarchico in "dendrogramma".
+  hcd <- as.dendrogram(random.cluster)
+  labelColors = c("red", "blue", "green", "orange", "violet", "black", "gray", "brown", "pink", "yellow") #creiamo il vettore dei colori da assegnare al cluster
+cluster.random <- cutree(random.cluster, 10) #scegliamo il numero dei cluster
+  colorsLabel <- function(n) {
+  if (is.leaf(n)) { #is.leaf individua tramite i nodi del dendrogramma un cluster
+    a <- attributes(n) #creiamo un vettore vuoto 
+    labCol <- labelColors[cluster.random[which(names(cluster.random) == a$label)]]
+    attr(n, "nodePar") <- c(a$nodePar, lab.col = labCol) #attribuiamo ad n un colore in base ai nodi (cluster)
+  }
+  n
+  } #con questa funzione quindi assegniamo un colore dal vettore labelColors ad ogni cluster.
+  
+  clusDendro = dendrapply(hcd, colorsLabel) #con dendrapply quindi applichiamo all'oggetto di classe "dendrogram" un colore in base ai cluster tramite la funzione colLab creata in precedenza, che assegna un colore ad ogni livello
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+plot(clusDendro, main = "Random portfolio", type = "triangle")
+```
+
+Random portfolio con assets ordinati {data-navmenu="APPENDICE"}
+====================================== 
+
+Column {.tabset}
+---------------------------------------
+
+### *Random portfolio con assets ordinati*
+
+Componiamo il portafoglio anche con gli assets ordinati a seguito dell’analisi cluster, generando anche qui dei pesi:
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+random.ret <-merge.xts(NCLH,CCL,DQ,TSLA,SEDG,ENPH,LHA.DE,QCLN,CSIQ,MELI,EXEL,REGN,BIIB,TCEHY,CMI,IBDRY,SNE,ABBV,PFE,JNJ,PANW,MSFT,FB,CAKE,UA,CBRL,LOCO)
+random.ret <- na.omit(random.ret)
+colnames(random.ret)<-c("NCLH","CCL","DQ","TSLA","SEDG","ENPH","LHA.DE","QLCN","CSIQ","MELI","EXEL","REGN","BIIB","TCEHY","CMI","IBDRY","SNE","ABBV","PFE","JNJ","PANW","MSFT","FB","CAKE","UA","CBRL","LOCO")   
+```
+  
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+pspec_random0 <- portfolio.spec(assets=colnames(random.ret), weight_seq=generatesequence())
+pspec_random0 <- add.constraint(portfolio = pspec_random0, type = "weight_sum", min_sum = 0.99, max_sum = 1.01, enabled = TRUE)
+pspec_random0 <- add.constraint(portfolio = pspec_random0, type = "box", min= 0.003, max = 0.500)
+pspec_random0 <- add.objective(portfolio = pspec_random0, type = "return", name = "mean")
+pspec_random0 <- add.objective(portfolio=pspec_random0,type="risk",name="StdDev")
+opt_random0<-optimize.portfolio(R=random.ret,portfolio=pspec_random0,optimize_method="random",trace=T)
+pesiOPT_random0<-extractWeights(opt_random0)
+pesiOPT_random0
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+Portfolio<- Return.portfolio(R=random, weights = pesiOPT_rand, wealth.index = TRUE)
+Portfolio0<- Return.portfolio(R=random.ret, weights = pesiOPT_random0, wealth.index = TRUE)
+comp <-merge.xts(Portfolio,Portfolio0)
+colnames(comp)<- c("Markovitz composition Random portfolio", "Cluster composition Random Portfolio")
+```
+
+### Clustering Performance Portfolio vs Markovitz Model once
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+dygraph(comp, main = "Clustering Performance Portfolio vs Markovitz Model once") %>%
+  dyAxis("y", label = "Amount ($)") %>%
+   dyOptions(colors = RColorBrewer::brewer.pal(4, "Set2"))
+```
+
+> Nel periodo che va da fine settembre 2020 a metà ottobre 2020 si assiste ad un cambio di tendenza dei due portafogli: il portafoglio ottenuto dalla composizione di Markovitz sopporta il periodo crisi,e solo al protrarsi della situazione (dopo 10 mesi di trading circa) apporta sensibili migliorie al portafoglio (soprattutto settori tech e pharma).   L'analisi cluster si dimostra, dopo ottobre 2020 inadeguata, ma ciò non deve stupire poichè è dalla fine del 2020 che i titoli che compongono il portafoglio random si diversificano maggiormente (il settore pharma impegnato nella ricerca del vaccino contro travel e food che continuano a crollare).  Per il periodo precendente a ottobre 2020 l'analisi cluster non si è mostrata particolarmente inefficace rispetto a Markovitz, a riprova del fatto che il concetto di "gruppo" è di difficile interpretazione e che da Febbraio 2020 tutti i settori erano accomunati dal fattore "COVID-19" che li ha resi "simili" a livello finanziario.
+
+Riesaminazione scenari {data-navmenu="APPENDICE"}
+====================================== 
+
+### *Riesaminazione scenari*
+
+<div style="text-align:justify;">
+
+Questo studio ha dunque riscontrato:  
+- Come il modello di Markovitz tenda a "resistere" agli shock finanziari temporanei, con lo svantaggio di stagnare i rendimenti per tenere basso il rischio;  
+- Come un cluster fatto appropriatamente con un sufficiente grado di similarità tra titoli per determitarne i pesi del portafoglio, riesca a rendere redditizia in tempi più veloci una tendenza di mercato, come lo è stata quella verso il green, sfruttando dunque al meglio uno shock finanziario, o un repentino cambio di domanda;  
+- Come un'analisi cluster abbinata alla creazione di un portafoglio media-varianza che presenta un certo grado di similarità (come il Travel&Food Portfolio), riesca ad apportare migliorie all'allocazione dei pesi all'interno del portafoglio;  
+- Che la stessa efficienza non viene riscontrata applicando Markovitz ad un portafoglio uni-indicizzato e questo perchè è un modello prudente che non "crede" ai repentini cambi di mercato e di conseguenza non valorizza tendenze che non sono ancora stabili nelle dinamiche dei mercati finanziari;  
+- Che la razionalità investitiva non salvaguarda dalle perdite, dunque quando si osserva una nuova tendenza di mercato e si "crede" in quell'idea tanto vale andare contro il modello di media-varianza e creare un portafoglio indicizzato avvalendosi di una semplice ma super efficace analisi cluster. 
+
+</div>
